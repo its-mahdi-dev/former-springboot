@@ -9,14 +9,15 @@ import com.example.former.model.Form;
 import com.example.former.service.FormService;
 
 import java.util.List;
-import java.util.Optional;
-
 @RestController
 @RequestMapping("/forms")
 public class FormController {
 
-    @Autowired
-    private FormService formService;
+    private final FormService formService;
+
+    public FormController(FormService formService) {
+        this.formService = formService;
+    }
 
     @GetMapping
     public List<Form> getAllForms() {
@@ -29,74 +30,34 @@ public class FormController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Form> getFormById(@PathVariable(name = "id") Long id) {
-        Optional<Form> form = formService.getFormById(id);
-        return form.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<Form> getFormById(@PathVariable("id") Long id) {
+        return ResponseEntity.ok(formService.getFormById(id));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Form> updateForm(@PathVariable(name = "id") Long id, @RequestBody Form formDetails) {
-        Optional<Form> formOptional = formService.getFormById(id);
-
-        if (!formOptional.isPresent()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        Form form = formOptional.get();
-        form.setName(formDetails.getName());
-        form.setPublishStatus(formDetails.isPublishStatus());
-        form.setMethod(formDetails.getMethod());
-        form.setSubmitUrl(formDetails.getSubmitUrl());
-
-        formService.save(form); 
-
-        return ResponseEntity.ok(form);
+    public ResponseEntity<Form> updateForm(@PathVariable("id") Long id, @RequestBody Form formDetails) {
+        return ResponseEntity.ok(formService.updateForm(id, formDetails));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteForm(@PathVariable(name = "id") Long id) {
-        return formService.deleteForm(id) ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+    public ResponseEntity<Void> deleteForm(@PathVariable("id") Long id) {
+        formService.deleteForm(id);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/fields")
-    public List<Field> getFields(@PathVariable(name = "id") Long id) {
-        return formService.getFieldsByFormId(id);
+    public ResponseEntity<List<Field>> getFields(@PathVariable("id") Long id) {
+        return ResponseEntity.ok(formService.getFieldsByFormId(id));
     }
 
     @PutMapping("/{id}/fields")
-    public ResponseEntity<List<Field>> updateFields(@PathVariable(name = "id") Long id, @RequestBody List<Field> fields) {
-        Optional<Form> formOptional = formService.getFormById(id);
-    
-        if (!formOptional.isPresent()) {
-            return ResponseEntity.notFound().build();
-        }
-    
-        Form form = formOptional.get();
-        List<Field> updatedFields = form.getFields();
-    
-        for (Field field : fields) {
-            Optional<Field> fieldToUpdate = updatedFields.stream()
-                    .filter(existingField -> existingField.getId().equals(field.getId()))
-                    .findFirst();
-    
-            if (fieldToUpdate.isPresent()) {
-                Field existingField = fieldToUpdate.get();
-                existingField.setName(field.getName());
-                existingField.setLabel(field.getLabel());
-                existingField.setType(field.getType());
-                existingField.setDefaultValue(field.getDefaultValue());
-            }
-        }
-    
-        formService.save(form);
-    
-        return ResponseEntity.ok(form.getFields());
+    public ResponseEntity<List<Field>> updateFields(@PathVariable("id") Long id, @RequestBody List<Field> fields) {
+        return ResponseEntity.ok(formService.updateFields(id, fields));
     }
 
     @PostMapping("/{id}/publish")
-    public ResponseEntity<Form> togglePublishStatus(@PathVariable(name = "id") Long id) {
-        Form form = formService.togglePublishStatus(id);
-        return form != null ? ResponseEntity.ok(form) : ResponseEntity.notFound().build();
+    public ResponseEntity<Form> togglePublishStatus(@PathVariable("id") Long id) {
+        return ResponseEntity.ok(formService.togglePublishStatus(id));
     }
 
     @GetMapping("/published")
@@ -104,3 +65,4 @@ public class FormController {
         return formService.getPublishedForms();
     }
 }
+

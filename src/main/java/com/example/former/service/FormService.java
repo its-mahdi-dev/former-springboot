@@ -3,6 +3,7 @@ package com.example.former.service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.example.former.exception.ResourceNotFoundException;
 import com.example.former.model.Field;
 import com.example.former.model.Form;
 import com.example.former.repository.FieldRepository;
@@ -14,68 +15,80 @@ import java.util.Optional;
 @Service
 public class FormService {
 
-    @Autowired
-    private FormRepository formRepository;
+    private final FormRepository formRepository;
 
-    @Autowired
-    private FieldRepository fieldRepository;
+    public FormService(FormRepository formRepository) {
+        this.formRepository = formRepository;
+    }
 
     public List<Form> getAllForms() {
         return formRepository.findAll();
     }
 
-    public Optional<Form> getFormById(Long id) {
-        return formRepository.findById(id);
+    public Form getFormById(Long id) {
+        return formRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Form not found with id " + id));
     }
 
     public Form createForm(Form form) {
         return formRepository.save(form);
     }
 
-    public Form updateForm(Long id, Form form) {
-        if (!formRepository.existsById(id)) {
-            return null;
-        }
-        form.setId(id);
+    public Form updateForm(Long id, Form formDetails) {
+        Form form = formRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Form not found with id " + id));
+
+        form.setName(formDetails.getName());
+        form.setPublishStatus(formDetails.isPublishStatus());
+        form.setMethod(formDetails.getMethod());
+        form.setSubmitUrl(formDetails.getSubmitUrl());
         return formRepository.save(form);
     }
 
-    public boolean deleteForm(Long id) {
-        if (formRepository.existsById(id)) {
-            formRepository.deleteById(id);
-            return true;
+    public void deleteForm(Long id) {
+        if (!formRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Form not found with id " + id);
         }
-        return false;
+        formRepository.deleteById(id);
     }
 
     public List<Field> getFieldsByFormId(Long formId) {
-        Optional<Form> form = formRepository.findById(formId);
-        return form.map(Form::getFields).orElse(null);
+        Form form = formRepository.findById(formId)
+                .orElseThrow(() -> new ResourceNotFoundException("Form not found with id " + formId));
+        return form.getFields();
     }
 
-    public void updateFields(Long formId, List<Field> fields) {
-        Optional<Form> form = formRepository.findById(formId);
-        form.ifPresent(f -> {
-            f.setFields(fields);
-            formRepository.save(f);
-        });
+    public List<Field> updateFields(Long id, List<Field> fields) {
+        Form form = formRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Form not found with id " + id));
+
+        List<Field> updatedFields = form.getFields();
+        for (Field field : fields) {
+            Optional<Field> fieldToUpdate = updatedFields.stream()
+                    .filter(existingField -> existingField.getId().equals(field.getId()))
+                    .findFirst();
+
+            if (fieldToUpdate.isPresent()) {
+                Field existingField = fieldToUpdate.get();
+                existingField.setName(field.getName());
+                existingField.setLabel(field.getLabel());
+                existingField.setType(field.getType());
+                existingField.setDefaultValue(field.getDefaultValue());
+            }
+        }
+        formRepository.save(form);
+        return form.getFields();
     }
 
     public Form togglePublishStatus(Long formId) {
-        Optional<Form> form = formRepository.findById(formId);
-        if (form.isPresent()) {
-            Form f = form.get();
-            f.setPublishStatus(!f.isPublishStatus());
-            return formRepository.save(f);
-        }
-        return null;
+        Form form = formRepository.findById(formId)
+                .orElseThrow(() -> new ResourceNotFoundException("Form not found with id " + formId));
+
+        form.setPublishStatus(!form.isPublishStatus());
+        return formRepository.save(form);
     }
 
     public List<Form> getPublishedForms() {
         return formRepository.findByPublishStatusTrue();
-    }
-
-    public Form save(Form form) {
-        return formRepository.save(form); // Update form
     }
 }
